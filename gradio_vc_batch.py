@@ -21,6 +21,7 @@ import queue
 import time
 import contextlib
 import sys
+import webbrowser
 
 class StreamCatcher:
     def __init__(self):
@@ -98,6 +99,16 @@ def update_target_files(target_dir):
     return gr.update(choices=files, value=files[0] if files else None)
 
 # BEGIN File dialog functions
+def open_system_explorer(path_to_open):
+    # Open the path in the default system file browser
+    webbrowser.open(f"file://{path_to_open}")
+    return f"Opening {path_to_open} in system explorer..."
+
+def open_target_folder_in_system_explorer():
+    homefolder = os.environ.get('userprofile')
+    msg = open_system_explorer(os.path.join(homefolder, "chatterbox/test/target"))
+    print(msg)
+
 def open_select_dir_dialog(preferred_dir: str = None):
     import tkinter as tk
     from tkinter import filedialog
@@ -119,7 +130,7 @@ def on_infer_button_click():
     Returns:
         status of changed ui elements
     """
-    return gr.update(visible=False), gr.update(visible=False)
+    return gr.update(visible="hidden"), gr.update(visible="hidden")
 
 def handle_infer_ui_result(success):
     """
@@ -129,8 +140,10 @@ def handle_infer_ui_result(success):
     :param result: The output message from the operation.
     :return: Tuple of updates for success and error spans, and the result text area.
     """
+    #check type of success
     print(f'try update success as {success}, {not success}')
-    return gr.update(visible=success), gr.update(visible=not success)
+    v_value = True if success else "hidden"
+    return gr.update(visible=v_value), gr.update(visible=not v_value)
 # END shown success/fail
 
 def gradio_ui(target_dir):
@@ -142,6 +155,7 @@ def gradio_ui(target_dir):
             gr.update(label=_('Input File or Directory'), placeholder=_('Path to input audio file or directory with audio files')),
             gr.update(label=_('Output Directory'), placeholder=_('Path to save output files')),
             gr.update(value=_('Refresh Target Files List')),
+            gr.update(value=_('Open Target Files Folder')),
             gr.update(label=_('Target Voice File (from target dir)')),
             gr.update(value=_('Run Voice Conversion')),
             gr.update(label=_('Result')),
@@ -184,7 +198,9 @@ def gradio_ui(target_dir):
                 inputs=output_dir,
                 outputs=output_dir
             )
-        refresh_btn = gr.Button(_('Refresh Target Files List'))
+        with gr.Row():
+            refresh_btn = gr.Button(_('Refresh Target Files List'))
+            open_target_btn = gr.Button(_('Open Target Files Folder'))
         target_file = gr.Dropdown(
             label=_('Target Voice File (from target dir)'),
             choices=get_audio_files(target_dir),
@@ -193,8 +209,8 @@ def gradio_ui(target_dir):
         run_btn = gr.Button(_('Run Voice Conversion'))
         with gr.Row():
             with gr.Column(scale=1):
-                success_span = gr.HTML(label=_("Success"), value="<span style='font-size: 5rem; color: transparent; text-shadow: 0 0 0 green;'>✔️</span>", visible=False)
-                error_span = gr.HTML(label=_("Error"), value="<span style='font-size: 5rem; color: transparent; text-shadow: 0 0 0 red;'>❌</span>", visible=False)
+                success_span = gr.HTML(label=_("Success"), value="<span style='font-size: 5rem; color: transparent; text-shadow: 0 0 0 green;'>✔️</span>", visible="hidden")
+                error_span = gr.HTML(label=_("Error"), value="<span style='font-size: 5rem; color: transparent; text-shadow: 0 0 0 red;'>❌</span>", visible="hidden")
                 # full_log_path = gr.Textbox(label=_("Log"), value=log_file, interactive=False).style(show_copy_button=True)
             is_success = gr.Checkbox(visible=False)
             with gr.Column(scale=4):
@@ -218,12 +234,17 @@ def gradio_ui(target_dir):
         lang_dd.change(
             on_change_language,
             inputs=lang_dd,
-            outputs=[title_md, input_dir, output_dir, refresh_btn, target_file, run_btn, result, lang_dd]
+            outputs=[title_md, input_dir, output_dir, refresh_btn, open_target_btn, target_file, run_btn, result, lang_dd]
         )
         refresh_btn.click(
             on_refresh_files,
             inputs=None,
             outputs=target_file
+        )
+        open_target_btn.click(
+			open_target_folder_in_system_explorer,
+			inputs=None,
+			outputs=[]
         )
 
         # 1) On load: restore values from localStorage into the components (including language)
